@@ -6,6 +6,8 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
          -e EfiMain \
          -O6
 
+SRC = main.c uefi.c
+
 QEMU = qemu-system-x86_64
 # QEMU = /home/mizutani/qemu/build/x86_64-softmmu/qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
@@ -19,13 +21,12 @@ else
 	ENABLE_NESTED=
 endif
 
-%.efi: %.c
-	$(CC) $(CFLAGS) $< -o $@
-
 .PHONY: all enable_nested disable_nested qemu clean
 
-
 all: main.efi
+
+main.efi: $(SRC)
+	$(CC) $(CFLAGS) $^ -o $@
 
 qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
 	$(QEMU) $(QEMU_OPTS)
