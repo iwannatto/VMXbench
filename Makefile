@@ -7,8 +7,10 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
          -O6
 
 QEMU = qemu-system-x86_64
+# QEMU = /home/mizutani/qemu/build/x86_64-softmmu/qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
 QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
+#  --trace events=./trace.txt
 
 NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)
 ifeq ($(NESTED),N)

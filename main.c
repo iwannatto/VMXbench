@@ -32,6 +32,7 @@
  *************************************************************************** */
 
 #include <stdint.h>
+#include "MT.h"
 
 /** ***************************************************************************
  * @section section_uefi Section 1. UEFI definitions
@@ -218,9 +219,9 @@ static inline void wrmsr(uint32_t index, uint64_t value)
 		  : "c" (index), "a" (eax), "d" (edx));
 }
 
-static inline uint32_t vmread(uint32_t index)
+static inline uint64_t vmread(uint64_t index)
 {
-    uint32_t value;
+    uint64_t value;
     asm volatile ("vmread %%rax, %%rdx"
 		  : "=d" (value)
 		  : "a" (index)
@@ -309,6 +310,32 @@ uint64_t host_entry(uint64_t arg)
 	print_results();
     } else
 	print_exitreason(reason);
+
+    wprintf(L"Start fuzzing...\n");
+    init_genrand(0);
+    
+    wprintf(L"vmread/write start\n");
+    int hogehogej = 0;
+    for (int i = 0; i < 1000000; ++i) {
+        if ((genrand_int32() & 0x1) == 0x1) {
+            uint64_t index = (uint64_t)genrand_int32();
+            wprintf(L"%d, vmread(%x)\n", i, index);
+            uint64_t ret = vmread(index);
+            ret += 1;
+        } else {
+            uint32_t index = genrand_int32();
+            uint64_t value = ((uint64_t)genrand_int32() << 32) | genrand_int32();
+            wprintf(L"%d, vmwrite(%x, %x)\n", i, index, value);
+            vmwrite(index, value);
+        }
+        // for (int i = 0; i < 100000; ++i) {
+        //     hogehogej += genrand_int32();
+        // }
+    }
+    wprintf(L"vmread/write end\n");
+    wprintf(L"%d\n", hogehogej);
+
+    wprintf(L"Fuzzing finished, no crash found\n");
 
     __builtin_longjmp(env, 1);
 }

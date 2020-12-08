@@ -1,1 +1,7 @@
-*.efi
+/.vscode
+
+/image
+/OVMF.fd
+/*.efi
+
+/*.txt
