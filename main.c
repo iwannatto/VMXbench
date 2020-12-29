@@ -45,8 +45,8 @@ static inline uint64_t rdmsr(uint32_t index)
 {
     uint32_t eax, edx;
     asm volatile ("rdmsr"
-		  : "=a" (eax), "=d" (edx)
-		  : "c" (index));
+                  : "=a" (eax), "=d" (edx)
+                  : "c" (index));
     return ((uint64_t)edx << 32) | eax;
 }
 
@@ -56,26 +56,26 @@ static inline void wrmsr(uint32_t index, uint64_t value)
     eax = value & 0xffffffff;
     edx = value >> 32;
     asm volatile ("wrmsr"
-		  : 
-		  : "c" (index), "a" (eax), "d" (edx));
+                  : 
+                  : "c" (index), "a" (eax), "d" (edx));
 }
 
 static inline uint64_t vmread(uint64_t index)
 {
     uint64_t value;
     asm volatile ("vmread %%rax, %%rdx"
-		  : "=d" (value)
-		  : "a" (index)
-		  : "cc");
+                  : "=d" (value)
+                  : "a" (index)
+                  : "cc");
     return value;
 }
 
 static inline void vmwrite(uint32_t index, uint64_t value)
 {
     asm volatile ("vmwrite %%rdx, %%rax"
-		  :
-		  : "a" (index), "d" (value)
-		  : "cc", "memory");
+                  :
+                  : "a" (index), "d" (value)
+                  : "cc", "memory");
 }
 
 static inline uint64_t rdtsc(void)
@@ -89,9 +89,9 @@ static inline uint64_t vmcall(uint64_t arg)
 {
     uint64_t ret;
     asm volatile ("vmcall"
-		  : "=a" (ret)
-		  : "c" (arg)
-		  : "memory", "rdx", "r8", "r9", "r10", "r11");
+                  : "=a" (ret)
+                  : "c" (arg)
+                  : "memory", "rdx", "r8", "r9", "r10", "r11");
     return ret;
 }
 
@@ -110,13 +110,13 @@ void print_results()
     uint64_t exit_avg = 0, entry_avg = 0;
 
     for (int i = 0; i < 10; i++) {
-	wprintf(L"VM exit[%d]: %5d, VM entry[%d]: %5d\r\n", i, tsc_exit[i], i, tsc_entry[i]);
-	if (tsc_exit[i] < exit_min) exit_min = tsc_exit[i];
-	if (tsc_exit[i] > exit_max) exit_max = tsc_exit[i];
-	exit_avg += tsc_exit[i];
-	if (tsc_entry[i] < entry_min) entry_min = tsc_entry[i];
-	if (tsc_entry[i] > entry_max) entry_max = tsc_entry[i];
-	entry_avg += tsc_entry[i];
+        wprintf(L"VM exit[%d]: %5d, VM entry[%d]: %5d\r\n", i, tsc_exit[i], i, tsc_entry[i]);
+        if (tsc_exit[i] < exit_min) exit_min = tsc_exit[i];
+        if (tsc_exit[i] > exit_max) exit_max = tsc_exit[i];
+        exit_avg += tsc_exit[i];
+        if (tsc_entry[i] < entry_min) entry_min = tsc_entry[i];
+        if (tsc_entry[i] > entry_max) entry_max = tsc_entry[i];
+        entry_avg += tsc_entry[i];
     }
     wprintf(L"VM exit : min = %5d, max = %5d, avg = %5d\r\n", exit_min, exit_max, exit_avg / 10);
     wprintf(L"VM entry: min = %5d, max = %5d, avg = %5d\r\n", entry_min, entry_max, entry_avg / 10);
@@ -130,10 +130,10 @@ void print_exitreason(uint64_t reason)
     wprintf(L"Unexpected VM exit: reason=%x, qualification=%x\r\n", reason, q);
     wprintf(L"rip: %08x, rsp: %08x\r\n", rip, rsp);
     for (int i = 0; i < 16; i++, rip++)
-	wprintf(L"%02x ", *(uint8_t *)rip);
+        wprintf(L"%02x ", *(uint8_t *)rip);
     wprintf(L"\r\n");
     for (int i = 0; i < 16; i++, rsp += 8)
-	wprintf(L"%016x: %016x\r\n", rsp, *(uint64_t *)rsp);
+        wprintf(L"%016x: %016x\r\n", rsp, *(uint64_t *)rsp);
     wprintf(L"\r\n");
 }
 
@@ -142,15 +142,15 @@ uint64_t host_entry(uint64_t arg)
     tsc_exit[index] = rdtsc() - arg;
     uint64_t reason = vmread(0x4402);
     if (reason == 18) {
-	if (arg > 0) {
-	    uint64_t rip = vmread(0x681E); // Guest RIP
-	    uint64_t len = vmread(0x440C); // VM-exit instruction length
-	    vmwrite(0x681E, rip + len);
-	    return rdtsc();
-	}
-	print_results();
+        if (arg > 0) {
+            uint64_t rip = vmread(0x681E); // Guest RIP
+            uint64_t len = vmread(0x440C); // VM-exit instruction length
+            vmwrite(0x681E, rip + len);
+            return rdtsc();
+        }
+        print_results();
     } else
-	print_exitreason(reason);
+        print_exitreason(reason);
 
     wprintf(L"Start fuzzing...\n");
     init_genrand(0);
@@ -185,11 +185,11 @@ void __host_entry(void);
 void _host_entry(void)
 {
     asm volatile (
-	"__host_entry:\n\t"
-	"call host_entry\n\t"
-	"vmresume\n\t"
-	"loop: jmp loop\n\t"
-	);
+        "__host_entry:\n\t"
+        "call host_entry\n\t"
+        "vmresume\n\t"
+        "loop: jmp loop\n\t"
+        );
 }
 
 _Noreturn
@@ -197,13 +197,13 @@ void guest_entry(void)
 {
     // warm up
     for (int i = 0; i < 10; i++)
-	vmcall(1);
+        vmcall(1);
     // benchmark
     for (index = 0; index < 10; index++) {
-	uint64_t tsc;
-	tsc = vmcall(rdtsc());
-	tsc = rdtsc() - tsc;
-	tsc_entry[index] = tsc;
+        uint64_t tsc;
+        tsc = vmcall(rdtsc());
+        tsc = rdtsc() - tsc;
+        tsc_entry[index] = tsc;
     }
     vmcall(0);
     while(1);
@@ -215,8 +215,8 @@ struct registers {
     uint64_t cr0, cr3, cr4;
     uint64_t ia32_efer, ia32_feature_control;
     struct {
-	uint16_t limit;
-	uint64_t base;
+        uint16_t limit;
+        uint64_t base;
     } __attribute__((packed)) gdt, idt;
     // attribute "packed" requires -mno-ms-bitfields
 };
@@ -264,7 +264,7 @@ EfiMain (
     uint32_t ecx;
     asm volatile ("cpuid" : "=c" (ecx) : "a" (1) : "ebx", "edx");
     if ((ecx & 0x20) == 0) // CPUID.1:ECX.VMX[bit 5] != 1
-	goto error_vmx_not_supported;
+        goto error_vmx_not_supported;
     wprintf(L"VMX is supported\r\n");
 
     // enable VMX 
@@ -277,17 +277,17 @@ EfiMain (
     wprintf(L"Enable VMX operation\r\n");
     regs.ia32_feature_control = rdmsr(0x3a);
     if ((regs.ia32_feature_control & 0x1) == 0) {
-	regs.ia32_feature_control |= 0x5; // firmware should set this
-	wrmsr(0x3a, regs.ia32_feature_control);
+        regs.ia32_feature_control |= 0x5; // firmware should set this
+        wrmsr(0x3a, regs.ia32_feature_control);
     } else if ((regs.ia32_feature_control & 0x4) == 0)
-	goto error_vmx_disabled;
+        goto error_vmx_disabled;
     
     // apply fixed bits to CR0 & CR4
     uint64_t apply_fixed_bits(uint64_t reg, uint32_t fixed0, uint32_t fixed1)
     {
-	reg |= rdmsr(fixed0);
-	reg &= rdmsr(fixed1);
-	return reg;
+        reg |= rdmsr(fixed0);
+        reg &= rdmsr(fixed1);
+        return reg;
     }
     asm volatile ("mov %%cr0, %0" : "=r" (regs.cr0));
     regs.cr0 = apply_fixed_bits(regs.cr0, 0x486, 0x487);
@@ -303,7 +303,7 @@ EfiMain (
     ptr[0] = revision_id;
     asm volatile ("vmxon %1" : "=@ccbe" (error) : "m" (ptr));
     if (error)
-	goto error_vmxon;
+        goto error_vmxon;
 
     // initialize VMCS
     wprintf(L"Initialize VMCS\r\n");
@@ -312,18 +312,18 @@ EfiMain (
     ptr[0] = revision_id;
     asm volatile ("vmclear %1" : "=@ccbe" (error) : "m" (ptr));
     if (error)
-	goto error_vmclear;
+        goto error_vmclear;
     asm volatile ("vmptrld %1" : "=@ccbe" (error) : "m" (ptr));
     if (error)
-	goto error_vmptrld;
+        goto error_vmptrld;
 
     // initialize control fields
     uint32_t apply_allowed_settings(uint32_t value, uint64_t msr_index)
     {
-	uint64_t msr_value = rdmsr(msr_index);
-	value |= (msr_value & 0xffffffff);
-	value &= (msr_value >> 32);
-	return value;
+        uint64_t msr_value = rdmsr(msr_index);
+        value |= (msr_value & 0xffffffff);
+        value &= (msr_value >> 32);
+        return value;
     }
     uint32_t pinbased_ctls = apply_allowed_settings(0x1e, 0x481);
     vmwrite(0x4000, pinbased_ctls);  // Pin-based VM-execution controls
@@ -337,8 +337,8 @@ EfiMain (
 
     void vmwrite_gh(uint32_t guest_id, uint32_t host_id, uint64_t value)
     {
-	vmwrite(guest_id, value);
-	vmwrite(host_id, value);
+        vmwrite(guest_id, value);
+        vmwrite(host_id, value);
     }
     
     // 16-Bit Guest and Host State Fields
@@ -371,9 +371,9 @@ EfiMain (
     asm volatile ("sidt %0" : "=m" (regs.idt));
     uint32_t get_seg_limit(uint32_t selector)
     {
-	uint32_t limit;
+        uint32_t limit;
         asm volatile ("lsl %1, %0" : "=r" (limit) : "r" (selector));
-	return limit;
+        return limit;
     }
     vmwrite(0x4800, get_seg_limit(regs.es)); // Guest ES limit
     vmwrite(0x4802, get_seg_limit(regs.cs)); // Guest CS limit
@@ -389,9 +389,9 @@ EfiMain (
     vmwrite(0x4812, regs.idt.limit); // Guest IDTR limit
     uint32_t get_seg_access_rights(uint32_t selector)
     {
-	uint32_t access_rights;
-	asm volatile ("lar %1, %0" : "=r" (access_rights) : "r" (selector));
-	return access_rights >> 8;
+        uint32_t access_rights;
+        asm volatile ("lar %1, %0" : "=r" (access_rights) : "r" (selector));
+        return access_rights >> 8;
     }
     vmwrite(0x4814, get_seg_access_rights(regs.es)); // Guest ES access rights
     vmwrite(0x4816, get_seg_access_rights(regs.cs)); // Guest CS access rights
@@ -434,12 +434,12 @@ EfiMain (
     vmwrite(0x6820, regs.rflags);
 
     if (!__builtin_setjmp(env)) {
-	wprintf(L"Launch a VM\r\n");
-	asm volatile ("cli");
-	asm volatile ("vmlaunch" ::: "memory");
-	goto error_vmx;
+        wprintf(L"Launch a VM\r\n");
+        asm volatile ("cli");
+        asm volatile ("vmlaunch" ::: "memory");
+        goto error_vmx;
     } else
-	goto disable_vmx;
+        goto disable_vmx;
 
 error_vmx:
     wprintf(L"VMLAUNCH failed: ");
