@@ -85,6 +85,7 @@ static inline uint64_t rdtsc(void)
     return (uint64_t)edx << 32 | (uint64_t)eax;
 }
 
+// hostでreturnした値が帰ってくるっぽい（なぜ？）
 static inline uint64_t vmcall(uint64_t arg)
 {
     uint64_t ret;
@@ -101,26 +102,6 @@ static inline uint64_t vmcall(uint64_t arg)
  *************************************************************************** */
 
 static int env[28];
-static int index;
-static uint64_t tsc_exit[10], tsc_entry[10];
-
-void print_results()
-{
-    uint64_t exit_min = UINT64_MAX, entry_min = UINT64_MAX, exit_max = 0, entry_max = 0;
-    uint64_t exit_avg = 0, entry_avg = 0;
-
-    for (int i = 0; i < 10; i++) {
-        wprintf(L"VM exit[%d]: %5d, VM entry[%d]: %5d\r\n", i, tsc_exit[i], i, tsc_entry[i]);
-        if (tsc_exit[i] < exit_min) exit_min = tsc_exit[i];
-        if (tsc_exit[i] > exit_max) exit_max = tsc_exit[i];
-        exit_avg += tsc_exit[i];
-        if (tsc_entry[i] < entry_min) entry_min = tsc_entry[i];
-        if (tsc_entry[i] > entry_max) entry_max = tsc_entry[i];
-        entry_avg += tsc_entry[i];
-    }
-    wprintf(L"VM exit : min = %5d, max = %5d, avg = %5d\r\n", exit_min, exit_max, exit_avg / 10);
-    wprintf(L"VM entry: min = %5d, max = %5d, avg = %5d\r\n", entry_min, entry_max, entry_avg / 10);
-}
 
 void print_exitreason(uint64_t reason)
 {
@@ -139,46 +120,46 @@ void print_exitreason(uint64_t reason)
 
 uint64_t host_entry(uint64_t arg)
 {
-    tsc_exit[index] = rdtsc() - arg;
     uint64_t reason = vmread(0x4402);
-    if (reason == 18) {
-        if (arg > 0) {
-            uint64_t rip = vmread(0x681E); // Guest RIP
-            uint64_t len = vmread(0x440C); // VM-exit instruction length
-            vmwrite(0x681E, rip + len);
-            return rdtsc();
-        }
-        print_results();
-    } else
+    // 18 means VMCALL
+    if (reason != 18) {
         print_exitreason(reason);
-
-    wprintf(L"Start fuzzing...\n");
-    init_genrand(0);
-    
-    wprintf(L"vmread/write start\n");
-    int hogehogej = 0;
-    for (int i = 0; i < 100; ++i) {
-        if ((genrand_int32() & 0x1) == 0x1) {
-            uint64_t index = (uint64_t)genrand_int32();
-            wprintf(L"%d, vmread(%x)\n", i, index);
-            uint64_t ret = vmread(index);
-            ret += 1;
-        } else {
-            uint32_t index = genrand_int32();
-            uint64_t value = ((uint64_t)genrand_int32() << 32) | genrand_int32();
-            wprintf(L"%d, vmwrite(%x, %x)\n", i, index, value);
-            vmwrite(index, value);
-        }
-        // for (int i = 0; i < 100000; ++i) {
-        //     hogehogej += genrand_int32();
-        // }
+        __builtin_longjmp(env, 1);
     }
-    wprintf(L"vmread/write end\n");
-    wprintf(L"%d\n", hogehogej);
+    // finish this program
+    if (arg == 0) {
+        wprintf(L"Finished all\n");
+        __builtin_longjmp(env, 1);
+    }
 
-    wprintf(L"Fuzzing finished, no crash found\n");
+    if (arg == 1) {
+        wprintf(L"Start fuzzing...\n");
+        init_genrand(0);
+        
+        wprintf(L"vmread/write start\n");
+        for (int i = 0; i < 100; ++i) {
+            if ((genrand_int32() & 0x1) == 0x1) {
+                uint64_t index = (uint64_t)genrand_int32();
+                wprintf(L"%d, vmread(%x)\n", i, index);
+                uint64_t ret = vmread(index);
+                ret += 1;
+            } else {
+                uint32_t index = genrand_int32();
+                uint64_t value = ((uint64_t)genrand_int32() << 32) | genrand_int32();
+                wprintf(L"%d, vmwrite(%x, %x)\n", i, index, value);
+                vmwrite(index, value);
+            }
+        }
+        wprintf(L"vmread/write end\n");
+    } else if (arg == 2) {
+        wprintf(L"vmenter/exit\n");
+    }
 
-    __builtin_longjmp(env, 1);
+    // return to guest
+    uint64_t rip = vmread(0x681E); // Guest RIP
+    uint64_t len = vmread(0x440C); // VM-exit instruction length
+    vmwrite(0x681E, rip + len);
+    return rdtsc();
 }
 
 void __host_entry(void);
@@ -195,16 +176,8 @@ void _host_entry(void)
 _Noreturn
 void guest_entry(void)
 {
-    // warm up
-    for (int i = 0; i < 10; i++)
-        vmcall(1);
-    // benchmark
-    for (index = 0; index < 10; index++) {
-        uint64_t tsc;
-        tsc = vmcall(rdtsc());
-        tsc = rdtsc() - tsc;
-        tsc_entry[index] = tsc;
-    }
+    vmcall(1);
+    vmcall(2);
     vmcall(0);
     while(1);
 }
