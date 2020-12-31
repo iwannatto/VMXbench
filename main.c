@@ -233,6 +233,10 @@ EfiMain (
     SystemTable = _SystemTable;
     wprintf(L"Starting VMXbench ...\r\n");
 
+    // qemuだと5分でtimeoutしてしまうのでそれを防止
+    // https://wiki.osdev.org/UEFI#My_UEFI_application_hangs.2Fresets_after_about_5_minutes
+    SystemTable->BootServices->SetWatchdogTimer(0, 0, 0, NULL);
+
     // check the presence of VMX support
     uint32_t ecx;
     asm volatile ("cpuid" : "=c" (ecx) : "a" (1) : "ebx", "edx");

@@ -4,7 +4,8 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
 	 -mno-stack-arg-probe -mno-red-zone -mno-sse -mno-ms-bitfields \
          -Wl,--subsystem,10 \
          -e EfiMain \
-         -O6
+         -O6 \
+	 -I ./uefi-headers/Include -I ./uefi-headers/Include/X64
 
 SRC = main.c uefi.c
 
