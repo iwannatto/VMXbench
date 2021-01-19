@@ -36,6 +36,8 @@
 
 #include "uefi.h"
 
+#include "vmx.h"
+
 /** ***************************************************************************
  * @section section_vmx Section 2. VMX definitions
  * This section contains several basic VMX function definitions.
@@ -176,8 +178,10 @@ void _host_entry(void)
 _Noreturn
 void guest_entry(void)
 {
-    vmcall(1);
-    vmcall(2);
+    for (int i = 0; i < 100; ++i) {
+        vmcall(1);
+        vmcall(2);
+    }
     vmcall(0);
     while(1);
 }
