@@ -98,6 +98,20 @@ static inline uint64_t vmcall(uint64_t arg)
     return ret;
 }
 
+static inline void check_vmfail(void)
+{
+    uint64_t rflags;
+    asm volatile (
+        "xor %0, %0\n\t"
+        "pushfq\n\t"
+        "mov (%%rsp), %0\n\t"
+        "add $0x8, %%rsp\n\t"
+        : "=r" (rflags)
+    );
+
+    wprintf(L"flags: %016x\n", rflags);
+}
+
 /** ***************************************************************************
  * @section section_vmxbench Section 3. VMXbench
  * This section contains VMXbench main functions
@@ -141,12 +155,12 @@ uint64_t host_entry(uint64_t arg)
         wprintf(L"vmread/write start\n");
         for (int i = 0; i < 100; ++i) {
             if ((genrand_int32() & 0x1) == 0x1) {
-                uint64_t index = (uint64_t)genrand_int32();
+                uint64_t index = (uint64_t)genrand_int32() & 0xffff;
                 wprintf(L"%d, vmread(%x)\n", i, index);
                 uint64_t ret = vmread(index);
                 ret += 1;
             } else {
-                uint32_t index = genrand_int32();
+                uint32_t index = genrand_int32() & 0xffff;
                 uint64_t value = ((uint64_t)genrand_int32() << 32) | genrand_int32();
                 wprintf(L"%d, vmwrite(%x, %x)\n", i, index, value);
                 vmwrite(index, value);
@@ -179,8 +193,11 @@ _Noreturn
 void guest_entry(void)
 {
     for (int i = 0; i < 100; ++i) {
+        wprintf(L"i = %d\n", i);
         vmcall(1);
+        check_vmfail();
         vmcall(2);
+        check_vmfail();
     }
     vmcall(0);
     while(1);
@@ -223,6 +240,7 @@ char host_stack[4096] __attribute__ ((aligned (4096)));
 char guest_stack[4096] __attribute__ ((aligned (4096)));
 char tss[4096] __attribute__ ((aligned (4096)));
 
+// char trampoline[4096];
 
 EFI_STATUS
 EFIAPI
@@ -456,6 +474,7 @@ error_vmx_not_supported:
 
 exit:
     putws(L"Press any key to go back to the UEFI menu\r\n");
+    SystemTable->RuntimeServices->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
     getwchar();
     return EFI_SUCCESS;
 }

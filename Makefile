@@ -9,10 +9,10 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
 
 SRC = main.c uefi.c
 
-QEMU = qemu-system-x86_64
-# QEMU = /home/mizutani/qemu/build/x86_64-softmmu/qemu-system-x86_64
+# QEMU = qemu-system-x86_64
+QEMU = /home/mizutani/NestedKVMFuzzer/fuzzer/qemu/build/x86_64-softmmu/qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
-QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
+QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot -object memory-backend-file,id=mem,size=128M,mem-path=/dev/shm/qemu-ram,share=on -machine memory-backend=mem
 #  --trace events=./trace.txt
 
 NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)
@@ -30,7 +30,7 @@ main.efi: $(SRC)
 	$(CC) $(CFLAGS) $^ -o $@
 
 qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
-	$(QEMU) $(QEMU_OPTS)
+	sudo $(QEMU) $(QEMU_OPTS)
 
 OVMF.fd:
 	wget http://downloads.sourceforge.net/project/edk2/OVMF/OVMF-X64-r15214.zip
