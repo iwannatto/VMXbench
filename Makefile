@@ -12,7 +12,7 @@ SRC = main.c uefi.c
 # QEMU = qemu-system-x86_64
 QEMU = /home/mizutani/NestedKVMFuzzer/fuzzer/qemu/build/x86_64-softmmu/qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
-QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot -object memory-backend-file,id=mem,size=128M,mem-path=/dev/shm/qemu-ram,share=on -machine memory-backend=mem
+QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
 #  --trace events=./trace.txt
 
 NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)

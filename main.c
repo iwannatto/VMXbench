@@ -192,7 +192,7 @@ void _host_entry(void)
 _Noreturn
 void guest_entry(void)
 {
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 5; ++i) {
         wprintf(L"i = %d\n", i);
         vmcall(1);
         check_vmfail();
@@ -240,7 +240,7 @@ char host_stack[4096] __attribute__ ((aligned (4096)));
 char guest_stack[4096] __attribute__ ((aligned (4096)));
 char tss[4096] __attribute__ ((aligned (4096)));
 
-// char trampoline[4096];
+char input_from_file[4096];
 
 EFI_STATUS
 EFIAPI
@@ -254,6 +254,59 @@ EfiMain (
 
     SystemTable = _SystemTable;
     wprintf(L"Starting VMXbench ...\r\n");
+
+    EFI_STATUS Status;
+    EFI_GUID SimpleFileSystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *SimpleFileSystemProtocol;
+    Status = SystemTable->BootServices->LocateProtocol(
+        &SimpleFileSystemProtocolGuid,
+        NULL,
+        (VOID **)&SimpleFileSystemProtocol
+    );
+    if (EFI_ERROR(Status)) {
+        wprintf(L"LocateProtocol %r\n", Status);
+        return Status;
+    }
+
+    EFI_FILE_PROTOCOL *Root;
+    Status = SimpleFileSystemProtocol->OpenVolume(
+        SimpleFileSystemProtocol,
+        &Root
+    );
+    if (EFI_ERROR(Status)) {
+        wprintf(L"OpenVolume %r\n", Status);
+        return Status;
+    }
+
+    EFI_FILE_PROTOCOL *File;
+    CHAR16 *Path = L"test.txt";
+    Status = Root->Open(
+        Root,
+        &File,
+        Path,
+        EFI_FILE_MODE_READ,
+        EFI_FILE_READ_ONLY
+    );
+    if (EFI_ERROR(Status)) {
+        wprintf(L"Open %r\n", Status);
+        return Status;
+    }
+
+    UINTN BufferSize = 4096;
+    Status = File->Read(
+        File,
+        &BufferSize,
+        (VOID *)input_from_file
+    );
+    if (EFI_ERROR(Status)) {
+        wprintf(L"Read %r\n", Status);
+        return Status;
+    }
+
+    wprintf(L"BufferSize = %d\n", BufferSize);
+    for (int i = 0; i < 50; ++i) {
+        wprintf(L"input_from_file[%d] = %d\n", i, input_from_file[i]);
+    }
 
     // qemuだと5分でtimeoutしてしまうのでそれを防止
     // https://wiki.osdev.org/UEFI#My_UEFI_application_hangs.2Fresets_after_about_5_minutes

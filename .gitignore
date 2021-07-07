@@ -1,7 +1,11 @@
+# editor setting
 /.vscode
 
+# generated files
 /image
 /OVMF.fd
 /*.efi
 
+# other personal or temporary files
 /*.txt
+/old
