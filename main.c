@@ -134,6 +134,8 @@ void print_exitreason(uint64_t reason)
     wprintf(L"\r\n");
 }
 
+uint16_t input_from_file[4096 / sizeof(uint16_t)];
+
 uint64_t host_entry(uint64_t arg)
 {
     uint64_t reason = vmread(0x4402);
@@ -151,17 +153,19 @@ uint64_t host_entry(uint64_t arg)
     if (arg == 1) {
         wprintf(L"Start fuzzing...\n");
         init_genrand(0);
+        for (int i = 0; i < 50; ++i) {
+            wprintf(L"input_from_file[%d] = %d\n", i, (int)input_from_file[i]);
+        }
         
         wprintf(L"vmread/write start\n");
-        for (int i = 0; i < 100; ++i) {
+        for (int i = 0; i < 4096 / sizeof(uint16_t); i += 2) {
+            uint16_t index = input_from_file[i];
+            uint16_t value = input_from_file[i + 1];
             if ((genrand_int32() & 0x1) == 0x1) {
-                uint64_t index = (uint64_t)genrand_int32() & 0xffff;
                 wprintf(L"%d, vmread(%x)\n", i, index);
                 uint64_t ret = vmread(index);
                 ret += 1;
             } else {
-                uint32_t index = genrand_int32() & 0xffff;
-                uint64_t value = ((uint64_t)genrand_int32() << 32) | genrand_int32();
                 wprintf(L"%d, vmwrite(%x, %x)\n", i, index, value);
                 vmwrite(index, value);
             }
@@ -240,21 +244,10 @@ char host_stack[4096] __attribute__ ((aligned (4096)));
 char guest_stack[4096] __attribute__ ((aligned (4096)));
 char tss[4096] __attribute__ ((aligned (4096)));
 
-char input_from_file[4096];
-
-EFI_STATUS
-EFIAPI
-EfiMain (
-    IN EFI_HANDLE        ImageHandle,
-    IN EFI_SYSTEM_TABLE  *_SystemTable
-    )
-{
-    uint32_t error;
-    struct registers regs;
-
-    SystemTable = _SystemTable;
-    wprintf(L"Starting VMXbench ...\r\n");
-
+// read input from "/input.bin" to input_from_file
+// max input size is 4096B (to change it,
+// change declaration of input_from_file and BufferSize)
+EFI_STATUS read_input_from_file(EFI_SYSTEM_TABLE *SystemTable) {
     EFI_STATUS Status;
     EFI_GUID SimpleFileSystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *SimpleFileSystemProtocol;
@@ -279,7 +272,7 @@ EfiMain (
     }
 
     EFI_FILE_PROTOCOL *File;
-    CHAR16 *Path = L"test.txt";
+    CHAR16 *Path = L"input.bin";
     Status = Root->Open(
         Root,
         &File,
@@ -304,8 +297,27 @@ EfiMain (
     }
 
     wprintf(L"BufferSize = %d\n", BufferSize);
-    for (int i = 0; i < 50; ++i) {
-        wprintf(L"input_from_file[%d] = %d\n", i, input_from_file[i]);
+
+    return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+EfiMain (
+    IN EFI_HANDLE        ImageHandle,
+    IN EFI_SYSTEM_TABLE  *_SystemTable
+    )
+{
+    uint32_t error;
+    struct registers regs;
+
+    SystemTable = _SystemTable;
+    wprintf(L"Starting VMXbench ...\r\n");
+
+    EFI_STATUS Status = read_input_from_file(SystemTable);
+    if (EFI_ERROR(Status)) {
+        wprintf(L"read_input_from_file failed\n");
+        return Status;
     }
 
     // qemuだと5分でtimeoutしてしまうのでそれを防止
