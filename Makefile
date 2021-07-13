@@ -1,5 +1,5 @@
 CC = x86_64-w64-mingw32-gcc
-CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
+CFLAGS = -std=gnu11 -ffreestanding -shared -fpic -nostdlib -Wall -Werror \
 	 -fno-stack-check -fno-stack-protector \
 	 -mno-stack-arg-probe -mno-red-zone -mno-sse -mno-ms-bitfields \
          -Wl,--subsystem,10 \
