@@ -139,11 +139,13 @@ uint16_t input_from_file[4096 / sizeof(uint16_t)];
 uint64_t host_entry(uint64_t arg)
 {
     uint64_t reason = vmread(0x4402);
+    wprintf(L"reason = %x\n", reason);
     // 18 means VMCALL
     if (reason != 18) {
         print_exitreason(reason);
         __builtin_longjmp(env, 1);
     }
+
     // finish this program
     if (arg == 0) {
         wprintf(L"Finished all\n");
@@ -189,6 +191,7 @@ void _host_entry(void)
         "__host_entry:\n\t"
         "call host_entry\n\t"
         "vmresume\n\t"
+        "call host_entry\n\t"
         "loop: jmp loop\n\t"
         );
 }
@@ -196,13 +199,7 @@ void _host_entry(void)
 _Noreturn
 void guest_entry(void)
 {
-    for (int i = 0; i < 5; ++i) {
-        wprintf(L"i = %d\n", i);
-        vmcall(1);
-        check_vmfail();
-        vmcall(2);
-        check_vmfail();
-    }
+    vmcall(1);
     vmcall(0);
     while(1);
 }
