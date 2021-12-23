@@ -163,7 +163,7 @@ uint64_t host_entry(uint64_t arg)
         for (int i = 0; i < 4096 / sizeof(uint16_t); i += 2) {
             uint16_t index = input_from_file[i];
             uint16_t value = input_from_file[i + 1];
-            if ((genrand_int32() & 0x1) == 0x1) {
+            if ((i % 4) == 0) {
                 wprintf(L"%d, vmread(%x)\n", i, index);
                 uint64_t ret = vmread(index);
                 ret += 1;
