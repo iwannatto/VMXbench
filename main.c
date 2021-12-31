@@ -140,6 +140,7 @@ uint64_t host_entry(uint64_t arg)
 {
     uint64_t reason = vmread(0x4402);
     wprintf(L"reason = %x\n", reason);
+    wprintf(L"arg = %x\n", arg);
     // 18 means VMCALL
     if (reason != 18) {
         print_exitreason(reason);
@@ -191,6 +192,7 @@ void _host_entry(void)
         "__host_entry:\n\t"
         "call host_entry\n\t"
         "vmresume\n\t"
+        "xorq %rcx, %rcx\n\t"
         "call host_entry\n\t"
         "loop: jmp loop\n\t"
         );
