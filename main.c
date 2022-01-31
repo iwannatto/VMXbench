@@ -122,16 +122,16 @@ static int env[28];
 void print_exitreason(uint64_t reason)
 {
     uint64_t q = vmread(0x6400);
-    uint64_t rip = vmread(0x681E);
-    uint64_t rsp = vmread(0x681C);
-    wprintf(L"Unexpected VM exit: reason=%x, qualification=%x\r\n", reason, q);
-    wprintf(L"rip: %08x, rsp: %08x\r\n", rip, rsp);
-    for (int i = 0; i < 16; i++, rip++)
-        wprintf(L"%02x ", *(uint8_t *)rip);
-    wprintf(L"\r\n");
-    for (int i = 0; i < 16; i++, rsp += 8)
-        wprintf(L"%016x: %016x\r\n", rsp, *(uint64_t *)rsp);
-    wprintf(L"\r\n");
+    // uint64_t rip = vmread(0x681E);
+    // uint64_t rsp = vmread(0x681C);
+    wprintf(L"VM exit: reason=%d, qualification=0x%x\r\n", reason, q);
+    // wprintf(L"rip: %08x, rsp: %08x\r\n", rip, rsp);
+    // for (int i = 0; i < 16; i++, rip++)
+    //     wprintf(L"%02x ", *(uint8_t *)rip);
+    // wprintf(L"\r\n");
+    // for (int i = 0; i < 16; i++, rsp += 8)
+    //     wprintf(L"%016x: %016x\r\n", rsp, *(uint64_t *)rsp);
+    // wprintf(L"\r\n");
 }
 
 uint16_t input_from_file[4096 / sizeof(uint16_t)];
@@ -139,43 +139,16 @@ uint16_t input_from_file[4096 / sizeof(uint16_t)];
 uint64_t host_entry(uint64_t arg)
 {
     uint64_t reason = vmread(0x4402);
-    wprintf(L"reason = %x\n", reason);
-    wprintf(L"arg = %x\n", arg);
     // 18 means VMCALL
-    if (reason != 18) {
+    if (reason == 18) {
+        wprintf(L"vmcall(%d)\n", arg);
+        // finish this program
+        if (arg == 0) {
+            wprintf(L"Finished all\n");
+            __builtin_longjmp(env, 1);
+        }
+    } else {
         print_exitreason(reason);
-        __builtin_longjmp(env, 1);
-    }
-
-    // finish this program
-    if (arg == 0) {
-        wprintf(L"Finished all\n");
-        __builtin_longjmp(env, 1);
-    }
-
-    if (arg == 1) {
-        wprintf(L"Start fuzzing...\n");
-        init_genrand(0);
-        for (int i = 0; i < 50; ++i) {
-            wprintf(L"input_from_file[%d] = %d\n", i, (int)input_from_file[i]);
-        }
-        
-        wprintf(L"vmread/write start\n");
-        for (int i = 0; i < 4096 / sizeof(uint16_t); i += 2) {
-            uint16_t index = input_from_file[i];
-            uint16_t value = input_from_file[i + 1];
-            if ((i % 4) == 0) {
-                wprintf(L"%d, vmread(%x)\n", i, index);
-                uint64_t ret = vmread(index);
-                ret += 1;
-            } else {
-                wprintf(L"%d, vmwrite(%x, %x)\n", i, index, value);
-                vmwrite(index, value);
-            }
-        }
-        wprintf(L"vmread/write end\n");
-    } else if (arg == 2) {
-        wprintf(L"vmenter/exit\n");
     }
 
     // return to guest
@@ -201,7 +174,38 @@ void _host_entry(void)
 _Noreturn
 void guest_entry(void)
 {
-    vmcall(1);
+    wprintf(L"guest_entry\n");
+
+    wprintf(L"mov to cr0\n");
+    uint64_t zero = 0x0;
+    asm volatile ("movq %0, %%cr0" : "+c" (zero) : : "%rax");
+
+    wprintf(L"mov to cr3\n");
+    zero = 0x0;
+    asm volatile ("movq %0, %%cr3" : "+c" (zero) : : "%rax");
+
+    wprintf(L"mov to cr4\n");
+    zero = 0x0;
+    asm volatile ("movq %0, %%cr4" : "+c" (zero) : : "%rax");
+
+    wprintf(L"mov to cr8\n");
+    zero = 0x0;
+    asm volatile ("movq %0, %%cr8" : "+c" (zero) : : "%rax");
+
+    wprintf(L"clts\n");
+    asm volatile ("clts");
+
+    wprintf(L"mov from cr3\n");
+    uint64_t dummy;
+    asm volatile ("movq %%cr3, %0" : "=c" (dummy) : : "%rbx");
+
+    wprintf(L"mov from cr8\n");
+    asm volatile ("movq %%cr8, %0" : "=c" (dummy) : : "%rbx", "%rsi");
+
+    wprintf(L"lmsw\n");
+    uint16_t zero16 = 0;
+    asm volatile ("lmsw %0" : "+c" (zero16) : : "%rdi");
+
     vmcall(0);
     while(1);
 }
@@ -390,7 +394,8 @@ EfiMain (
     }
     uint32_t pinbased_ctls = apply_allowed_settings(0x1e, 0x481);
     vmwrite(0x4000, pinbased_ctls);  // Pin-based VM-execution controls
-    uint32_t procbased_ctls = apply_allowed_settings(0x0401e9f2, 0x482);
+    uint32_t procbased_ctls = apply_allowed_settings(0x0419e9f2, 0x482); // set CR8-load/store exiting
+    wprintf(L"procbased_ctls = %x\n", procbased_ctls);
     vmwrite(0x4002, procbased_ctls); // Primary processor-based VM-execution controls
     vmwrite(0x4004, 0x0);            // Exception bitmap
     uint32_t exit_ctls = apply_allowed_settings(0x336fff, 0x483);
@@ -495,6 +500,12 @@ EfiMain (
     asm volatile ("pushf; pop %%rax" : "=a" (regs.rflags));
     regs.rflags &= ~0x200ULL; // clear interrupt enable flag
     vmwrite(0x6820, regs.rflags);
+
+    // for nested_vmx_exit_handled_cr
+    vmwrite(0x6000, 0xffffffffffffffff); // CR0 guest/host mask
+    vmwrite(0x6002, 0xffffffffffffffff); // CR4 guest/host mask
+    vmwrite(0x6004, ~regs.cr0); // CR0 read shadow
+    vmwrite(0x6006, ~regs.cr4); // CR4 read shadow
 
     if (!__builtin_setjmp(env)) {
         wprintf(L"Launch a VM\r\n");
